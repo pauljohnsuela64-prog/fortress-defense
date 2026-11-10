@@ -1,0 +1,22 @@
+{
+  "name": "fortress-defense",
+  "version": "0.0.0",
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.3",
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "phaser": "^3.80.1"
+  }
+}

@@ -1,0 +1,28 @@
+:root { font-family: system-ui, sans-serif; color: #e0e9dc; background: #0b1919; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px; }
+#app { max-width: 1100px; margin: auto; }
+header, .controls, .buttons { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+header { padding: 0 0 20px; }
+h1 { font-size: clamp(24px, 4vw, 36px); margin: 0; letter-spacing: -1px; }
+.eyebrow { color: #d6b575; font-size: 11px; letter-spacing: 3px; margin: 0 0 6px; }
+#hud { font-variant-numeric: tabular-nums; color: #e9ca8c; text-align: right; }
+#phaser-container { width: 100%; aspect-ratio: 8 / 5; overflow: hidden; border: 1px solid #426153; border-radius: 8px; }
+canvas { display: block; }
+canvas:focus-visible { outline: 3px solid #f3d191; outline-offset: -4px; }
+.controls { padding: 18px 0 6px; }
+.controls p { color: #a4b8ac; font-size: 13px; margin: 5px 0; }
+button { font: inherit; font-weight: 650; padding: 12px 22px; min-height: 46px; border-radius: 6px; border: 1px solid #6b8979; background: #203d35; color: #eef4e9; cursor: pointer; }
+#start-wave { background: #e9c781; border-color: #e9c781; color: #162c26; }
+button:hover:not(:disabled) { filter: brightness(1.12); }
+button:focus-visible { outline: 3px solid #fff2c8; outline-offset: 3px; }
+button:disabled { opacity: 0.5; cursor: default; }
+#message { min-height: 24px; color: #d8cda8; font-size: 14px; }
+footer { border-top: 1px solid #29443b; padding: 14px 0; color: #819c8d; font-size: 12px; }
+@media (max-width: 640px) {
+  body { padding: 12px; }
+  header, .controls { align-items: flex-start; flex-direction: column; gap: 8px; }
+  #hud { margin: 0; font-size: 14px; }
+  .buttons { width: 100%; }
+  button { flex: 1; }
+}

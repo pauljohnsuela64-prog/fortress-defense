@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fortress Defense</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <main id="app">
+        <header>
+            <div><p class="eyebrow">THE LAST LINE • PHASE 1</p><h1>Fortress Defense</h1></div>
+            <p id="hud" aria-label="Game statistics">Gold 180 · Lives 10 · Wave 0 / 5</p>
+        </header>
+        <div id="phaser-container"></div>
+        <section class="controls" aria-label="Battle controls">
+            <div><strong id="tower-label">Cannon tower</strong><p>Click grass to build · Arrow keys + Enter also work</p></div>
+            <div class="buttons"><button id="start-wave" type="button">Start Wave</button><button id="restart" type="button">Restart</button></div>
+        </section>
+        <p id="message" role="status" aria-live="polite"></p>
+        <footer>Hold the winding road. Survive all five waves.</footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
