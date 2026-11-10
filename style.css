@@ -1,28 +1,66 @@
-:root { font-family: system-ui, sans-serif; color: #e0e9dc; background: #0b1919; color-scheme: dark; }
+﻿:root { font-family: system-ui, sans-serif; color: #e0e9dc; background: #0b1919; color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; padding: 24px; }
-#app { max-width: 1100px; margin: auto; }
+#app { max-width: 1440px; margin: auto; }
 header, .controls, .buttons { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-header { padding: 0 0 20px; }
+header { padding: 0 0 24px; }
 h1 { font-size: clamp(24px, 4vw, 36px); margin: 0; letter-spacing: -1px; }
-.eyebrow { color: #d6b575; font-size: 11px; letter-spacing: 3px; margin: 0 0 6px; }
-#hud { font-variant-numeric: tabular-nums; color: #e9ca8c; text-align: right; }
+h2 { font-size: 18px; margin: 0 0 16px; }
+.eyebrow { color: #d6b575; font-size: 10px; letter-spacing: 2px; margin: 0 0 7px; }
+#hud { font-variant-numeric: tabular-nums; color: #e9ca8c; text-align: right; padding: 12px 16px; background: #122825; border: 1px solid #2c473e; border-radius: 6px; }
+.battle-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 22px; }
+.battlefield { min-width: 0; }
 #phaser-container { width: 100%; aspect-ratio: 8 / 5; overflow: hidden; border: 1px solid #426153; border-radius: 8px; }
-canvas { display: block; }
+canvas { display: block; touch-action: none; }
 canvas:focus-visible { outline: 3px solid #f3d191; outline-offset: -4px; }
-.controls { padding: 18px 0 6px; }
-.controls p { color: #a4b8ac; font-size: 13px; margin: 5px 0; }
-button { font: inherit; font-weight: 650; padding: 12px 22px; min-height: 46px; border-radius: 6px; border: 1px solid #6b8979; background: #203d35; color: #eef4e9; cursor: pointer; }
-#start-wave { background: #e9c781; border-color: #e9c781; color: #162c26; }
+.controls { padding: 16px 0 6px; flex-wrap: wrap; }
+#wave-intel { color: #b0c6b9; font-size: 12px; margin: 0; flex: 1 1 200px; }
+button { font: inherit; font-size: 14px; font-weight: 650; padding: 12px 18px; min-height: 46px; border-radius: 6px; border: 1px solid #6b8979; background: #203d35; color: #eef4e9; cursor: pointer; }
+#start-wave, #upgrade-button { background: #e9c781; border-color: #e9c781; color: #162c26; }
 button:hover:not(:disabled) { filter: brightness(1.12); }
 button:focus-visible { outline: 3px solid #fff2c8; outline-offset: 3px; }
 button:disabled { opacity: 0.5; cursor: default; }
-#message { min-height: 24px; color: #d8cda8; font-size: 14px; }
-footer { border-top: 1px solid #29443b; padding: 14px 0; color: #819c8d; font-size: 12px; }
-@media (max-width: 640px) {
+#message { min-height: 42px; line-height: 1.5; color: #d8cda8; font-size: 13px; }
+aside { display: grid; gap: 16px; }
+.shop-section, #upgrade-panel { padding: 18px; border: 1px solid #304a40; border-radius: 8px; background: #10231f; }
+#tower-shop { display: grid; gap: 9px; }
+.shop-card { display: flex; gap: 10px; width: 100%; align-items: center; text-align: left; padding: 12px 10px; border-color: #385349; background: #193129; }
+.shop-card[aria-pressed="true"] { border-color: #e9c781; box-shadow: inset 3px 0 #e9c781; background: #2c3e2c; }
+.shop-card.unaffordable .price { color: #e9a28e; }
+.shop-copy { flex: 1; }
+.shop-copy strong { display: block; font-size: 13px; }
+.shop-copy small { display: block; color: #b1c2b6; font-weight: 400; font-size: 11px; margin-top: 4px; line-height: 1.4; }
+.price { color: #e9ca8c; font-variant-numeric: tabular-nums; text-align: right; }
+.price small { display: block; font-size: 10px; font-weight: 400; }
+.tower-icon { flex: 0 0 22px; width: 22px; height: 22px; background: #a9d783; border: 4px solid #456c42; border-radius: 50%; }
+.cannon .tower-icon { background: #e9b16e; border-color: #7d6447; border-radius: 3px; }
+.magic .tower-icon { background: #baabff; border-color: #6c5a91; border-radius: 2px; transform: rotate(45deg) scale(0.8); }
+.hint { font-size: 12px; color: #b0c0b6; line-height: 1.6; margin: 14px 0 0; }
+#upgrade-title { margin-bottom: 12px; }
+#upgrade-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0; }
+#upgrade-stats dt { color: #a9bfb1; font-size: 10px; }
+#upgrade-stats dd { font-size: 20px; color: #f3e3b9; margin: 5px 0 0; font-variant-numeric: tabular-nums; }
+#upgrade-button { margin-top: 16px; width: 100%; font-size: 12px; }
+.enemy-key { display: flex; justify-content: space-around; gap: 10px; color: #b1c3b8; font-size: 11px; padding: 0 8px; }
+.enemy-key span { display: flex; align-items: center; gap: 6px; }
+.enemy-key i { display: inline-block; width: 10px; height: 10px; }
+.normal-mark { background: #db775d; border-radius: 50%; }
+.fast-mark { background: #f1cd71; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.tank-mark { background: #9eabbc; border-radius: 2px; }
+footer { border-top: 1px solid #29443b; padding: 16px 0; margin-top: 18px; color: #9cb5a6; font-size: 12px; line-height: 1.6; }
+footer span { display: block; font-size: 11px; margin-top: 5px; }
+@media (max-width: 960px) {
+  .battle-layout { grid-template-columns: 1fr; gap: 8px; }
+  aside { grid-template-columns: 1fr 1fr; }
+  .enemy-key { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
   body { padding: 12px; }
-  header, .controls { align-items: flex-start; flex-direction: column; gap: 8px; }
-  #hud { margin: 0; font-size: 14px; }
-  .buttons { width: 100%; }
-  button { flex: 1; }
+  header { align-items: flex-start; flex-direction: column; gap: 8px; padding-bottom: 14px; }
+  #hud { margin: 0; font-size: 13px; padding: 8px 10px; width: 100%; text-align: left; }
+  .buttons { width: 100%; gap: 10px; }
+  .buttons button { flex: 1; }
+  aside { grid-template-columns: 1fr; gap: 12px; }
+  .shop-section, #upgrade-panel { padding: 14px; }
+  .shop-card { padding: 12px; }
 }

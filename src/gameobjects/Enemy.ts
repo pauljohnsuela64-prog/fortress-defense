@@ -1,4 +1,4 @@
-import { PATH } from '../GameConfig';
+import { PATH, type EnemyType } from '../GameConfig';
 
 export class Enemy {
   x = PATH[0].x;
@@ -7,9 +7,20 @@ export class Enemy {
   status: 'alive' | 'dead' | 'escaped' = 'alive';
   settled = false;
   private waypoint = 1;
+  slowRemaining = 0;
+  private slowFactor = 1;
 
-  constructor(readonly maxHealth: number, readonly speed: number, readonly reward: number) {
+  constructor(readonly maxHealth: number, readonly speed: number, readonly reward: number, readonly type: EnemyType = 'normal') {
     this.health = maxHealth;
+  }
+
+  slow(factor: number, duration: number) {
+    if (this.status !== 'alive' || !Number.isFinite(factor) || !Number.isFinite(duration)
+      || factor <= 0 || factor >= 1 || duration <= 0) return;
+    // A weaker hit must not prolong an existing stronger slow.
+    if (this.slowRemaining > 0 && factor > this.slowFactor) return;
+    this.slowFactor = factor;
+    this.slowRemaining = duration;
   }
 
   damage(amount: number) {
@@ -20,7 +31,9 @@ export class Enemy {
 
   update(seconds: number) {
     if (this.status !== 'alive') return;
-    let distance = this.speed * seconds;
+    const slowedTime = Math.min(seconds, this.slowRemaining);
+    let distance = this.speed * (slowedTime * this.slowFactor + seconds - slowedTime);
+    this.slowRemaining = Math.max(0, this.slowRemaining - seconds);
     while (distance > 0 && this.waypoint < PATH.length) {
       const target = PATH[this.waypoint];
       const remaining = Math.hypot(target.x - this.x, target.y - this.y);

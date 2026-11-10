@@ -23,7 +23,9 @@ export class WaveManager {
     const settings = CONFIG.waves[this.wave - 1];
     this.delay -= seconds;
     while (this.remaining > 0 && this.delay <= 0) {
-      enemies.push(new Enemy(settings.health, settings.speed, settings.reward));
+      const type = settings.pattern[(settings.count - this.remaining) % settings.pattern.length];
+      const enemy = CONFIG.enemies[type];
+      enemies.push(new Enemy(enemy.health * settings.healthScale, enemy.speed, enemy.reward, type));
       this.remaining--;
       this.delay += settings.interval;
     }
