@@ -3,3 +3,15 @@ dist/
 coverage/
 *.log
 .browser-check/
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+.aws/
+.ssh/

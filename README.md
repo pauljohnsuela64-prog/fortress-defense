@@ -1,6 +1,6 @@
-﻿# Fortress Defense — Phase 1
+﻿# Fortress Defense — Phase 2
 
-An original top-down tower defense prototype built with Phaser, TypeScript, and Vite. Place cannon towers beside a winding road and defend the fortress through five waves. All active graphics are original procedural placeholders; no external art or network services are needed during play.
+An original top-down tower defense game built with Phaser, TypeScript, and Vite. Combine archers, cannons and magic towers, upgrade your defenses and survive five mixed enemy waves. All active graphics are original procedural shapes; no external art, backend or database is required.
 
 ## Setup
 
@@ -11,56 +11,77 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-Open the local URL printed by Vite (normally http://localhost:5173). On shells without PowerShell's script restriction, `npm` works in place of `npm.cmd`.
+Open Vite's printed local URL (normally http://localhost:5173). Use `npm` instead of `npm.cmd` on shells without PowerShell's script restriction.
 
 ## Play
 
-- Start with 180 gold and 10 lives. Each cannon costs 60 gold.
-- Click a grass tile to build; the outlined tile and circle show placement and attack range.
-- Path tiles, occupied tiles, and unaffordable purchases are rejected without spending gold.
-- Keyboard: focus the battlefield with Tab, move the tile selection with arrow keys, and press Enter to build. Tab to the native Start Wave and Restart buttons to activate them.
-- Press **Start Wave** when ready. Towers aim and fire automatically. You may build during waves.
-- Kills earn gold. Each enemy reaching the fortress costs one life. Health bars show enemy damage.
-- The next wave becomes available only after the current wave's enemies are resolved.
-- Clear all five waves with lives remaining to win. Zero lives ends the game. **Restart** resets everything, including an ongoing game.
-- A useful opening is towers at columns/rows (3, 4), (5, 6), and (7, 4), counting from 1 at the top left. Spend rewards on more coverage around bends.
+Start with **210 gold and 10 lives**. Choose a tower in the shop, then click or tap grass to build. A green outline shows a valid placement; a red outline means the tile is blocked or you cannot afford the tower. The circle shows attack range. Paths and occupied cells cannot be built on.
 
-## Verify
+| Tower | Cost | Level 1 damage | Attacks/second | Range | Role |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Archer | 40 | 14 | 2.86 | 150 | Fast, single-target arrows |
+| Cannon | 100 | 40 | 0.67 | 165 | Splash damage within 65 pixels, visible blast |
+| Magic | 70 | 10 | 1.18 | 145 | Arcane bolts; slows by 40% for 1.6 seconds |
+
+Click or tap a placed tower to inspect its damage, attack speed, range and upgrade price. Upgrade it twice to reach Level 3: damage/range increase, attacks get faster, and max-level towers gain a gold crown/ring. Cannon blast radius and magic slow strength/duration also improve. Upgrade prices (Levels 2 / 3) are Archer **45 / 75**, Cannon **90 / 140**, Magic **65 / 100** gold. Insufficient gold, maximum level and finished battles prevent upgrades.
+
+Magic slow does not multiply across towers: an equal-strength hit refreshes its duration; a stronger hit replaces it; a weaker hit cannot extend a stronger slow. Enemies return to normal speed when the timer expires. A projectile keeps the stats it had when fired; upgrading does not change shots already in flight.
+
+Press **Start Wave** when ready. Towers target and fire automatically, including while you build or upgrade. The wave button is unavailable until all spawned enemies are resolved. Kills earn gold; each escape deducts one life exactly once. Survive wave five to win; zero lives ends the game. **Restart** clears the battlefield, upgrades, effects, selection and wave progress.
+
+Enemy shapes distinguish **normal** (red circle, balanced), **fast** (yellow triangle, low health/high speed) and **tank** (armored gray square, high health/low speed). Violet rings mark slowed enemies. The wave preview names the upcoming enemy types.
+
+Keyboard: Tab to the battlefield, use arrows to select a tile, and press Enter to build or inspect. Escape clears tower selection. Tab also reaches the shop, upgrade, wave and restart buttons. Mobile controls stack below the battlefield; scroll to the shop/panel to change selection or upgrade, then return to the map.
+
+### Tested opening strategy
+
+Coordinates count from 1 at the top-left: Archer at **(3, 4)**, Cannon at **(5, 6)**, Magic at **(7, 4)**. This spends the starting 210 gold. Between waves, upgrade those towers in that order when affordable; before wave four, add a cannon at **(11, 6)** if funds allow. This strategy wins the automated full-game simulations at both 30 and 60 steps per second. Experiment with other placements and upgrade priorities during manual review.
+
+## Verification
 
 ```powershell
 npm.cmd run typecheck
 npm.cmd test
 npm.cmd run build
-npm.cmd run preview
+npm.cmd audit --audit-level=moderate
+npm.cmd run preview -- --host 127.0.0.1
 ```
 
-`npm.cmd run test:watch` starts Vitest watch mode. The 12 Vitest tests cover invalid/occupied/path placement, affordability, corners, targeting and cooldown, projectile lifetime, duplicate settlement, wave gating, terminal states, fresh-state reset, a real five-wave winning simulation, and an undefended defeat.
+`npm.cmd run test:watch` starts Vitest watch mode. The 32 tests cover placement, all three purchase prices, upgrades and caps, shot stat snapshots, splash boundaries and repeated hits, slow refresh/replacement/expiry, movement, kill and escape settlement, mixed wave composition/completion, restart state, terminal effect expiry, full-game victory and undefended defeat. Phase 1 regression tests are retained and adapted to the new balance.
 
-Optional browser smoke test: leave the production preview running at http://127.0.0.1:4173, then in another terminal run:
+For browser smoke checks, leave the production preview running at http://127.0.0.1:4173, then run in another terminal:
 
 ```powershell
 node tests/browser-smoke.mjs
 ```
 
-This uses locally installed Google Chrome on Windows and Node's built-in WebSocket support. Set `CHROME_PATH` to override the executable path. It opens a hidden browser, checks purchases, blocked placements, wave controls, repeated restart, keyboard building, mobile overflow and runtime exceptions. Screenshots/profile are saved under ignored `.browser-check/`. Port 9223 must be free.
+The test uses local Google Chrome on Windows and Node's built-in WebSocket support. Set `CHROME_PATH` to override Chrome's executable path. Port 9223 must be free. It verifies all shop types, purchase rejection, stats, upgrades, max level, insufficient gold, waves, repeated restart, keyboard placement, emulated touchscreen taps and layouts at 320/390/768/1280px. Screenshots/profile are saved in ignored `.browser-check/`. No test dependency was added.
 
-Manual review: watch enemies follow the whole road, inspect projectiles and health bars, finish all waves, deliberately lose without towers, and restart from both end screens. Check touch controls on a physical device.
+### Manual review checklist
+
+1. Build each type; inspect its range preview, projectile shape and targeting speed.
+2. Place cannons near bends and watch explosions hit groups; place magic nearby and watch violet slow rings appear and expire.
+3. Inspect each tower, upgrade to Levels 2 and 3, verify stats/costs and the gold max-level appearance. Try insufficient funds and Level 4.
+4. Finish all five waves with a mixed defense; verify fast and tank appearances as they enter later waves.
+5. Restart mid-wave with upgraded towers, then play without towers to lose. Restart from both victory and defeat screens.
+6. Test on a physical phone/tablet: shop selection, grass placement, inspection, upgrades and scrolling between controls/map.
 
 ## Architecture and balancing
 
-- `src/scenes/GameScene.ts`: Phaser rendering, input, HUD and end screens; removes DOM listeners on shutdown.
-- `src/gameobjects/Enemy.ts`: waypoint movement, health and terminal status.
-- `src/gameobjects/Tower.ts`: in-range targeting and fire cooldown.
-- `src/gameobjects/Projectile.ts`: homing attacks and one-time impact.
-- `src/WaveManager.ts`: wave counts, timed spawning and completion.
-- `src/GameConfig.ts`: dimensions, path, starting resources, tower statistics and wave balance.
-- `src/GameState.ts`: purchases, combat orchestration, one-time rewards/life deductions and outcomes.
-- `src/main.ts`: Phaser boot and responsive canvas scaling.
+- `src/GameConfig.ts`: all tower prices/levels, attack and effect values, enemy stats, wave patterns/health scaling, path and starting resources.
+- `src/gameobjects/Tower.ts`: shared targeting/cooldown with three configured types and Levels 1–3.
+- `src/gameobjects/Projectile.ts`: homing shots, splash impacts, slow application, explosion data.
+- `src/gameobjects/Enemy.ts`: waypoint movement, health, terminal status and exact slow expiry.
+- `src/WaveManager.ts`: timed mixed-enemy spawning and completion.
+- `src/GameState.ts`: purchases/upgrades, combat, effect lifetime, one-time rewards/life deductions and outcomes.
+- `src/scenes/GameScene.ts`: Phaser scene, input, DOM shop/HUD/upgrades and end screens; cleans listeners on shutdown.
+- `src/rendering.ts`: original tower/enemy/projectile shapes, level markers and transient effects.
+- `src/main.ts`: Phaser boot and responsive scaling.
 
-The gameplay classes have no Phaser/browser dependency and are exercised directly by Vitest. Frame catch-up is capped to avoid an unseen surge after returning from a background tab.
+Logic classes remain browser-independent. UI text only refreshes when displayed state changes. Static terrain is drawn once per scene. Active entities use a shared graphics object; explosions expire and inactive entities are removed. Frame catch-up stays capped to avoid unseen waves after returning from a background tab.
 
-## Preserved template and scope
+## Scope and limitations
 
-The original JavaScript shooter files, `public/` assets and `screenshot.png` are retained as inactive reference. `index.html` now loads only `src/main.ts`. The original Vite configuration and relative deployment base are unchanged. Vite was updated from 5.1.6 to 8.3.7 and Vitest 5.1.0 / TypeScript 5.7.3 added; Phaser remains 3.80.1. The lockfile records exact installed versions.
+The original inactive JavaScript shooter files, `public/` assets and `screenshot.png` remain untouched as reference. The app loads only `src/main.ts`; the Vite configuration and relative deployment base remain unchanged. No dependencies were added or upgraded in Phase 2. Tracked `.gitignore` now excludes secrets as well as dependencies, build output, coverage and browser artifacts; sanitized `.env.example`/`.env.sample` files remain eligible for version control.
 
-Phase 1 includes one tower type and five waves. No upgrades, persistence, audio, menus or later-phase features. The build succeeds with a large-chunk warning for the Phaser bundle (about 1.19 MB, 318 KB gzipped). Desktop Chrome was smoke-tested; physical touch devices and other browsers still need manual review.
+The production bundle still triggers Vite's size warning (about 1.20 MB, 321 KB gzipped, primarily Phaser). Chrome desktop and emulated touch/layout checks are automated; physical touchscreen devices and other browsers remain unverified. Full victory/defeat is tested through real gameplay simulation; complete human playthroughs of the new balance remain part of manual review. No persistence, audio, backend or later-phase features were added.

@@ -1,28 +1,45 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fortress Defense</title>
     <link rel="stylesheet" href="/style.css">
 </head>
-
 <body>
     <main id="app">
         <header>
-            <div><p class="eyebrow">THE LAST LINE • PHASE 1</p><h1>Fortress Defense</h1></div>
-            <p id="hud" aria-label="Game statistics">Gold 180 · Lives 10 · Wave 0 / 5</p>
+            <div><p class="eyebrow">THE LAST LINE / PHASE 2</p><h1>Fortress Defense</h1></div>
+            <p id="hud" aria-label="Game statistics"></p>
         </header>
-        <div id="phaser-container"></div>
-        <section class="controls" aria-label="Battle controls">
-            <div><strong id="tower-label">Cannon tower</strong><p>Click grass to build · Arrow keys + Enter also work</p></div>
-            <div class="buttons"><button id="start-wave" type="button">Start Wave</button><button id="restart" type="button">Restart</button></div>
-        </section>
-        <p id="message" role="status" aria-live="polite"></p>
-        <footer>Hold the winding road. Survive all five waves.</footer>
+        <div class="battle-layout">
+            <section class="battlefield" aria-label="Battlefield and wave controls">
+                <div id="phaser-container"></div>
+                <div class="controls">
+                    <p id="wave-intel"></p>
+                    <div class="buttons"><button id="start-wave" type="button">Start Wave</button><button id="restart" type="button">Restart</button></div>
+                </div>
+                <p id="message" role="status" aria-live="polite"></p>
+            </section>
+            <aside aria-label="Tower command panel">
+                <section class="shop-section" aria-labelledby="shop-title">
+                    <p class="eyebrow">BUILD YOUR DEFENSE</p><h2 id="shop-title">Tower shop</h2>
+                    <div id="tower-shop" aria-label="Choose a tower"></div>
+                    <p class="hint">Choose a tower, then click or tap grass. The ring shows attack range.</p>
+                </section>
+                <section id="upgrade-panel" aria-labelledby="upgrade-title">
+                    <p class="eyebrow">UPGRADES / LEVELS 1–3</p><h2 id="upgrade-title">Inspect a tower</h2>
+                    <dl id="upgrade-stats"></dl>
+                    <p id="upgrade-special" class="hint"></p>
+                    <button id="upgrade-button" type="button" hidden>Upgrade</button>
+                </section>
+                <section class="enemy-key" aria-label="Enemy types">
+                    <span><i class="normal-mark"></i>Normal</span><span><i class="fast-mark"></i>Fast</span><span><i class="tank-mark"></i>Tank</span>
+                </section>
+            </aside>
+        </div>
+        <footer>Hold the winding road. Survive all five waves.<span>Keyboard: Tab to battlefield · Arrows to move · Enter to build / inspect · Escape to deselect</span></footer>
     </main>
     <script type="module" src="/src/main.ts"></script>
 </body>
-
 </html>

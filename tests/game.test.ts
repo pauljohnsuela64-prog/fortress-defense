@@ -16,11 +16,11 @@ describe('placement and economy', () => {
     expect(game.gold).toBe(gold);
     expect(game.placeTower(1, 0)).toBe(true);
     expect(game.placeTower(1, 0)).toBe(false);
-    expect(game.gold).toBe(gold - CONFIG.tower.cost);
+    expect(game.gold).toBe(gold - CONFIG.towers.archer.cost);
   });
   it('rejects purchases without enough gold', () => {
     const game = new GameState();
-    game.gold = CONFIG.tower.cost - 1;
+    game.gold = CONFIG.towers.archer.cost - 1;
     expect(game.placeTower(1, 0)).toBe(false);
     expect(game.towers).toHaveLength(0);
   });
@@ -69,7 +69,7 @@ describe('combat and settlement', () => {
     const shot = new Projectile(enemy.x, enemy.y, enemy);
     shot.update(1);
     shot.update(1);
-    expect(enemy.health).toBe(100 - CONFIG.tower.damage);
+    expect(enemy.health).toBe(100 - CONFIG.towers.archer.levels[0].damage);
     const lateShot = new Projectile(0, 0, enemy);
     enemy.damage(100);
     lateShot.update(1);
@@ -83,7 +83,7 @@ describe('waves and end states', () => {
     const positions = [[2, 3], [4, 5], [6, 3], [8, 3], [10, 5], [12, 7], [6, 5], [8, 5], [10, 3], [12, 3]];
     let next = 0;
     for (let wave = 0; wave < CONFIG.waves.length; wave++) {
-      while (next < positions.length && game.gold >= CONFIG.tower.cost) {
+      while (next < positions.length && game.gold >= CONFIG.towers.archer.cost) {
         expect(game.placeTower(...positions[next] as [number, number])).toBe(true);
         next++;
       }
