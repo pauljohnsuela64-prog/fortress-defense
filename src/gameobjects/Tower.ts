@@ -8,6 +8,7 @@ export class Tower {
   angle = -Math.PI / 2;
   private cooldown = 0;
   private currentLevel = 1;
+  shotsFired = 0;
 
   get level() { return this.currentLevel; }
   get stats(): TowerStats { return CONFIG.towers[this.type].levels[this.level - 1]; }
@@ -33,6 +34,7 @@ export class Tower {
     this.angle = Math.atan2(target.y - this.y, target.x - this.x);
     if (this.cooldown > 0) return null;
     this.cooldown = this.stats.cooldown;
+    this.shotsFired++;
     return new Projectile(this.x, this.y, target, this.type, this.stats);
   }
 }
