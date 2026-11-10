@@ -32,7 +32,7 @@ try {
   const errors = [];
   socket.onmessage = ({ data }) => {
     const message = JSON.parse(data);
-    if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.text);
+    if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description ?? message.params.exceptionDetails.text);
     if (message.id) {
       const request = pending.get(message.id);
       if (!request) return;
@@ -55,6 +55,35 @@ try {
   };
   await send('Runtime.enable');
   await send('Page.enable');
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: `
+    const nativeFrame = window.requestAnimationFrame.bind(window);
+    let lastFrame, lastTime = 0, offset = 0, pumping = false;
+    window.requestAnimationFrame = callback => pumping ? 0 : nativeFrame(time => {
+      lastFrame = callback; lastTime = time + offset; callback(lastTime);
+    });
+    // Advance the actual Phaser frame callback, with unchanged 60Hz simulation steps.
+    window.__pumpFrames = count => {
+      pumping = true;
+      try { for (let i = 0; i < count; i++) { lastTime += 1000 / 60; offset += 1000 / 60; lastFrame(lastTime); } }
+      finally { pumping = false; }
+    };
+    window.__audioSmoke = { contexts: 0, starts: 0, live: 0, peak: 0 };
+    const NativeAudioContext = window.AudioContext;
+    window.AudioContext = class extends NativeAudioContext {
+      constructor(...args) { super(...args); window.__audioSmoke.contexts++; }
+      createOscillator() {
+        const oscillator = super.createOscillator();
+        const start = oscillator.start.bind(oscillator);
+        oscillator.start = (...args) => {
+          window.__audioSmoke.starts++; window.__audioSmoke.live++;
+          window.__audioSmoke.peak = Math.max(window.__audioSmoke.peak, window.__audioSmoke.live);
+          return start(...args);
+        };
+        oscillator.addEventListener('ended', () => window.__audioSmoke.live--, { once: true });
+        return oscillator;
+      }
+    };
+  ` });
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: 'http://127.0.0.1:4173/' });
   for (let attempt = 0; attempt < 50; attempt++) {
@@ -62,6 +91,7 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   const hud = () => evaluate("document.querySelector('#hud').textContent");
+  assert.deepEqual(errors, [], 'Game startup must not throw');
   assert.match(await hud(), /Gold 210.*Lives 10.*Wave 0/);
   const clickTile = async (column, row) => {
     const rect = await evaluate("JSON.stringify(document.querySelector('canvas').getBoundingClientRect().toJSON())");
@@ -84,12 +114,21 @@ try {
   assert.match(await hud(), /Gold 210/);
   await clickTile(2, 3);
   assert.match(await hud(), /Gold 170/);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  await evaluate("document.querySelector('#mute').click()");
+  assert.equal(await evaluate("document.querySelector('#mute').getAttribute('aria-pressed')"), 'true');
+  await evaluate("const slider = document.querySelector('#volume'); slider.value = '20'; slider.dispatchEvent(new Event('input', { bubbles: true }));");
+  assert.equal(await evaluate("document.querySelector('#volume').getAttribute('aria-valuetext')"), '20 percent');
+  const mutedStarts = await evaluate('window.__audioSmoke.starts');
   await clickTile(2, 3);
   assert.match(await hud(), /Gold 170/);
   assert.match(await panel(), /Archer Tower.*Level 1/);
   assert.match(await evaluate("document.querySelector('#upgrade-stats').textContent"), /Damage14Attack speed2.86\/sRange150/);
   await upgrade();
   assert.match(await hud(), /Gold 125/);
+  assert.equal(await evaluate('window.__audioSmoke.starts'), mutedStarts, 'Muted actions must not create audio voices');
+  await evaluate("document.querySelector('#mute').click()");
+  assert.equal(await evaluate("document.querySelector('#mute').getAttribute('aria-pressed')"), 'false');
   assert.match(await panel(), /Level 2/);
   await upgrade();
   assert.match(await hud(), /Gold 50/);
@@ -130,6 +169,10 @@ try {
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   await writeFile(`${artifacts}/desktop.png`, Buffer.from(shot.data, 'base64'));
   for (let count = 0; count < 3; count++) await restart();
+  assert.equal(await evaluate('window.__audioSmoke.contexts'), 1, 'Restart must reuse one audio context');
+  assert.equal(await evaluate('window.__audioSmoke.live'), 0, 'Restart must stop old voices');
+  assert.ok(await evaluate('window.__audioSmoke.starts > 0'), 'Original audio must actually play');
+  assert.equal(await evaluate("document.querySelector('#volume').value"), '20', 'Restart must preserve volume');
   await clickTile(1, 1);
   assert.match(await hud(), /Gold 170/);
   await clickTile(1, 1);
@@ -169,13 +212,76 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: Math.ceil(content.height), deviceScaleFactor: 1, mobile: true });
   const mobile = await send('Page.captureScreenshot', { format: 'png' });
   await writeFile(`${artifacts}/mobile.png`, Buffer.from(mobile.data, 'base64'));
-  for (const width of [320, 768, 1280]) {
+  for (const width of [320, 390, 768, 1280]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width < 900 });
     await new Promise(resolve => setTimeout(resolve, 150));
     assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true, `Overflow at ${width}px`);
+    await evaluate('window.scrollTo(0, 0)');
+    const layout = await send('Page.getLayoutMetrics');
+    const screenshot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true,
+      clip: { x: 0, y: 0, width, height: Math.ceil(layout.cssContentSize.height), scale: 1 } });
+    await writeFile(`${artifacts}/layout-${width}.png`, Buffer.from(screenshot.data, 'base64'));
   }
+  assert.ok(await evaluate('window.__audioSmoke.peak <= 12'), 'Audio voice limit exceeded');
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await restart();
+  assert.equal(await evaluate("document.querySelector('#battle-result').hidden"), true);
+  const finishWave = async () => {
+    for (let i = 0; i < 40; i++) {
+      await evaluate('window.__pumpFrames(300)');
+      if (await evaluate("!document.querySelector('#battle-result').hidden || !document.querySelector('#start-wave').disabled")) return;
+    }
+    assert.fail('Wave failed to finish within 200 simulated seconds');
+  };
+  const resultScreenshot = async (name, width) => {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: true });
+    await new Promise(resolve => setTimeout(resolve, 150));
+    await evaluate('window.scrollTo(0, 0)');
+    assert.equal(await evaluate(`(() => {
+      const stage = document.querySelector('.stage').getBoundingClientRect();
+      const button = document.querySelector('#result-restart').getBoundingClientRect();
+      return button.bottom <= stage.bottom && button.top >= stage.top && button.left >= stage.left && button.right <= stage.right;
+    })()`), true, 'Result restart control must fit inside the battlefield');
+    const shot = await send('Page.captureScreenshot', { format: 'png' });
+    await writeFile(`${artifacts}/${name}-${width}.png`, Buffer.from(shot.data, 'base64'));
+  };
+  for (let wave = 0; wave < 2; wave++) {
+    await evaluate("document.querySelector('#start-wave').click()");
+    await finishWave();
+  }
+  assert.equal(await evaluate("document.querySelector('#battle-result').dataset.outcome"), 'defeat');
+  assert.equal(await evaluate("document.querySelector('#start-wave').textContent"), 'Battle finished');
+  assert.equal(await evaluate('document.activeElement.id'), 'result-restart');
+  await resultScreenshot('defeat', 320);
+  await evaluate("document.querySelector('#result-restart').click()");
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.match(await hud(), /Gold 210.*Lives 10.*Wave 0/);
+  assert.equal(await evaluate("document.querySelector('#battle-result').hidden"), true);
+  await choose('archer'); await clickTile(2, 3);
+  await choose('cannon'); await clickTile(4, 5);
+  await choose('magic'); await clickTile(6, 3);
+  for (let wave = 0; wave < 5; wave++) {
+    if (wave > 0) {
+      for (const [column, row] of [[2, 3], [4, 5], [6, 3]]) { await clickTile(column, row); await upgrade(); }
+      if (wave === 3) { await choose('cannon'); await clickTile(10, 5); }
+    }
+    await evaluate("document.querySelector('#start-wave').click()");
+    await finishWave();
+  }
+  assert.equal(await evaluate("document.querySelector('#battle-result').dataset.outcome"), 'victory');
+  await resultScreenshot('victory', 390);
+  await evaluate("document.querySelector('#result-restart').click()");
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.match(await hud(), /Gold 210.*Lives 10.*Wave 0/);
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: "window.AudioContext = class { constructor() { throw new Error('test: device unavailable'); } };" });
+  await send('Page.reload');
+  await new Promise(resolve => setTimeout(resolve, 700));
+  await clickTile(2, 3);
+  assert.match(await hud(), /Gold 170/, 'Unavailable sound must not block purchases');
+  await evaluate("document.querySelector('#start-wave').click()");
+  assert.match(await hud(), /Wave 1/);
   assert.deepEqual(errors, []);
-  console.log('Browser smoke passed: three tower purchases, upgrade stats/caps/affordability, waves, repeated restart, keyboard, real touch events, 320/390/768/1280px layouts; no runtime exceptions.');
+  console.log('Browser smoke passed: purchases/upgrades, keyboard/touch, restart, real victory/defeat and mobile result controls, audio mute/volume/voice cleanup/device failure, reduced motion, 320/390/768/1280px screenshots; no runtime exceptions.');
 } finally {
   socket?.close();
   browser.kill();
