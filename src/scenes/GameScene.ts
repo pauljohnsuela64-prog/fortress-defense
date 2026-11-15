@@ -1,14 +1,22 @@
 import Phaser from 'phaser';
-import { CONFIG, PATH, cellCenter, isPath, type TowerType } from '../GameConfig';
+import { CONFIG, cellCenter, type TowerType } from '../GameConfig';
 import { GameState } from '../GameState';
 import { Tower } from '../gameobjects/Tower';
 import { drawActors } from '../rendering';
+import { drawTerrain } from '../terrain';
+import { BattleFeedback } from '../BattleFeedback';
+import { GameAudio } from '../GameAudio';
+import { TOWER_ART } from '../towerArtwork';
 
 export class GameScene extends Phaser.Scene {
   private state = new GameState();
   private actors!: Phaser.GameObjects.Graphics;
   private preview!: Phaser.GameObjects.Graphics;
-  private endText!: Phaser.GameObjects.Text;
+  private audio = new GameAudio();
+  private disposeAudio = () => this.audio.dispose();
+  private feedback = new BattleFeedback(cue => this.audio.play(cue));
+  private labels: Phaser.GameObjects.Text[] = [];
+  private reducedMotion = false;
   private selected = { column: 1, row: 1 };
   private buildType: TowerType = 'archer';
   private selectedTower: Tower | null = null;
@@ -23,15 +31,23 @@ export class GameScene extends Phaser.Scene {
   private upgradeSpecial = document.querySelector<HTMLElement>('#upgrade-special')!;
   private upgradeButton = document.querySelector<HTMLButtonElement>('#upgrade-button')!;
   private waveIntel = document.querySelector<HTMLElement>('#wave-intel')!;
+  private result = document.querySelector<HTMLElement>('#battle-result')!;
+  private resultRestart = document.querySelector<HTMLButtonElement>('#result-restart')!;
+  private muteButton = document.querySelector<HTMLButtonElement>('#mute')!;
+  private volumeSlider = document.querySelector<HTMLInputElement>('#volume')!;
 
   constructor() { super('GameScene'); }
 
   create() {
+    this.events.off(Phaser.Scenes.Events.DESTROY, this.disposeAudio);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.disposeAudio);
     this.state = new GameState();
     this.selected = { column: 1, row: 1 };
     this.buildType = 'archer';
     this.selectedTower = null;
     this.hudKey = '';
+    this.feedback.reset();
+    this.result.hidden = true;
     this.shop.replaceChildren();
     for (const type of Object.keys(CONFIG.towers) as TowerType[]) {
       const tower = CONFIG.towers[type];
@@ -39,7 +55,7 @@ export class GameScene extends Phaser.Scene {
       button.type = 'button';
       button.dataset.tower = type;
       button.className = `shop-card ${type}`;
-      button.innerHTML = `<span class="tower-icon" aria-hidden="true"></span><span class="shop-copy"><strong>${tower.name}</strong><small>${tower.description}</small></span><span class="price">${tower.cost}<small>gold</small></span>`;
+      button.innerHTML = `<svg class="tower-art" viewBox="0 0 64 64" aria-hidden="true">${TOWER_ART[type]}</svg><span class="shop-copy"><strong>${tower.name}</strong><small>${tower.description}</small></span><span class="price">${tower.cost}<small>gold</small></span>`;
       button.addEventListener('click', () => {
         this.buildType = type;
         this.selectedTower = null;
@@ -48,21 +64,43 @@ export class GameScene extends Phaser.Scene {
       });
       this.shop.append(button);
     }
-    this.drawMap();
+    drawTerrain(this);
     this.preview = this.add.graphics();
     this.actors = this.add.graphics();
-    this.endText = this.add.text(CONFIG.width / 2, CONFIG.height / 2, '', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '36px', color: '#f4e8c1',
-      backgroundColor: '#102321', padding: { x: 40, y: 28 }, align: 'center',
-    }).setOrigin(0.5).setDepth(10).setVisible(false);
+    this.labels = this.feedback.labels.map(() => this.add.text(0, 0, '', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '14px', fontStyle: 'bold', stroke: '#304536', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(5).setVisible(false));
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const setMotion = () => { this.reducedMotion = motion.matches; };
+    setMotion();
+    motion.addEventListener('change', setMotion);
+    const unlock = () => { void this.audio.unlock(); };
+    const syncAudio = () => {
+      this.muteButton.textContent = this.audio.muted ? 'Sound off' : 'Sound on';
+      this.muteButton.setAttribute('aria-pressed', String(this.audio.muted));
+      this.muteButton.setAttribute('aria-label', this.audio.muted ? 'Unmute sound' : 'Mute sound');
+      this.volumeSlider.value = String(Math.round(this.audio.volume * 100));
+      this.volumeSlider.setAttribute('aria-valuetext', `${Math.round(this.audio.volume * 100)} percent`);
+    };
+    const mute = () => { this.audio.setMuted(!this.audio.muted); syncAudio(); };
+    const volume = () => { this.audio.setVolume(Number(this.volumeSlider.value) / 100); syncAudio(); };
+    const visibility = () => { if (document.hidden) this.audio.stopAll(); };
+    syncAudio();
+    document.addEventListener('pointerdown', unlock, { passive: true });
+    document.addEventListener('keydown', unlock);
+    document.addEventListener('visibilitychange', visibility);
+    this.muteButton.addEventListener('click', mute);
+    this.volumeSlider.addEventListener('input', volume);
     const start = () => {
       if (this.state.startWave()) this.message.textContent = 'Wave incoming. Keep building to hold the line.';
       this.refreshHud();
     };
-    const restart = () => this.scene.restart();
+    const restart = () => { this.scene.restart(); this.game.canvas.focus({ preventScroll: true }); };
     const upgrade = () => {
       if (!this.selectedTower) return;
-      this.message.textContent = this.state.upgradeTower(this.selectedTower)
+      const upgraded = this.state.upgradeTower(this.selectedTower);
+      if (upgraded) { this.audio.play('upgrade'); this.feedback.burst(this.selectedTower.x, this.selectedTower.y, 0xffdb77, 12); }
+      this.message.textContent = upgraded
         ? `${CONFIG.towers[this.selectedTower.type].name} upgraded to Level ${this.selectedTower.level}.`
         : 'Upgrade unavailable. Check your gold and tower level.';
       this.refreshHud();
@@ -70,6 +108,7 @@ export class GameScene extends Phaser.Scene {
     this.startButton.addEventListener('click', start);
     this.restartButton.addEventListener('click', restart);
     this.upgradeButton.addEventListener('click', upgrade);
+    this.resultRestart.addEventListener('click', restart);
     const canvas = this.game.canvas;
     canvas.tabIndex = 0;
     canvas.setAttribute('role', 'application');
@@ -98,6 +137,16 @@ export class GameScene extends Phaser.Scene {
       this.startButton.removeEventListener('click', start);
       this.restartButton.removeEventListener('click', restart);
       this.upgradeButton.removeEventListener('click', upgrade);
+      this.resultRestart.removeEventListener('click', restart);
+      this.muteButton.removeEventListener('click', mute);
+      this.volumeSlider.removeEventListener('input', volume);
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('keydown', unlock);
+      document.removeEventListener('visibilitychange', visibility);
+      motion.removeEventListener('change', setMotion);
+      this.audio.stopAll();
+      this.feedback.reset();
+      this.labels = [];
       this.shop.replaceChildren();
       canvas.removeEventListener('keydown', keydown);
     });
@@ -124,7 +173,7 @@ export class GameScene extends Phaser.Scene {
     } else {
       const error = this.state.placementError(column, row, this.buildType);
       this.message.textContent = error ?? `${CONFIG.towers[this.buildType].name} built. Select it to view upgrades.`;
-      if (!error) this.state.placeTower(column, row, this.buildType);
+      if (!error && this.state.placeTower(column, row, this.buildType)) this.audio.play('purchase');
     }
     this.refreshHud();
   }
@@ -133,53 +182,41 @@ export class GameScene extends Phaser.Scene {
     return this.state.towers.find(tower => tower.column === column && tower.row === row) ?? null;
   }
 
-  private drawMap() {
-    const map = this.add.graphics();
-    for (let row = 0; row < CONFIG.rows; row++) {
-      for (let column = 0; column < CONFIG.columns; column++) {
-        const path = isPath(column, row);
-        map.fillStyle(path ? 0x927952 : (column + row) % 2 ? 0x193b34 : 0x1d4138);
-        map.fillRect(column * CONFIG.cell, row * CONFIG.cell, CONFIG.cell - 1, CONFIG.cell - 1);
-        if (!path && (column * 7 + row * 3) % 5 === 0) {
-          map.fillStyle(0x2d5343);
-          map.fillCircle(column * CONFIG.cell + 16, row * CONFIG.cell + 18, 3);
-          map.fillCircle(column * CONFIG.cell + 24, row * CONFIG.cell + 16, 2);
-        }
-      }
-    }
-    map.lineStyle(2, 0xe0c18a, 0.35);
-    map.beginPath();
-    map.moveTo(PATH[0].x, PATH[0].y);
-    PATH.slice(1).forEach(point => map.lineTo(point.x, point.y));
-    map.strokePath();
-    const base = PATH[PATH.length - 1];
-    map.fillStyle(0xbed3cd);
-    map.fillRect(base.x - 22, base.y - 20, 44, 40);
-    map.fillRect(base.x - 26, base.y - 27, 12, 15);
-    map.fillRect(base.x + 14, base.y - 27, 12, 15);
-    map.fillStyle(0x17302e);
-    map.fillRect(base.x - 7, base.y + 1, 14, 19);
-    this.add.text(8, 105, 'ENTRY →', { fontSize: '12px', color: '#f4d49a' });
-    this.add.text(base.x - 10, base.y + 32, 'FORTRESS', { fontSize: '11px', color: '#d9ebe4' }).setOrigin(0.5);
-  }
-
   update(time: number, delta: number) {
     // Cap background-tab catch-up so returning players do not lose unseen waves.
-    this.state.update(Math.min(delta / 1000, 0.05));
-    drawActors(this.actors, this.state, time);
+    const seconds = Math.min(delta / 1000, 0.05);
+    this.state.update(seconds);
+    this.feedback.update(this.state, seconds);
+    drawActors(this.actors, this.state, time, this.feedback, this.reducedMotion);
+    for (let i = 0; i < this.labels.length; i++) {
+      const source = this.feedback.labels[i];
+      const label = this.labels[i];
+      label.setVisible(source.active);
+      if (!source.active) continue;
+      if (label.text !== source.text) label.setText(source.text).setColor(`#${source.color.toString(16).padStart(6, '0')}`);
+      label.setPosition(source.x, source.y).setAlpha(Math.min(1, source.life * 3));
+    }
     this.preview.clear();
     if (this.state.status === 'playing') {
       const { column, row } = this.selectedTower ?? this.selected;
       const point = cellCenter(column, row);
       const valid = this.selectedTower !== null || !this.state.placementError(column, row, this.buildType);
-      this.preview.lineStyle(2, valid ? 0xb8efd0 : 0xff9b80, 0.9);
+      this.preview.fillStyle(valid ? 0xe4ffb1 : 0xff6d58, 0.12);
+      this.preview.fillRoundedRect(column * CONFIG.cell + 3, row * CONFIG.cell + 3, CONFIG.cell - 6, CONFIG.cell - 6, 8);
+      this.preview.lineStyle(3, valid ? 0xf1ffc7 : 0xff755b, 0.95);
       this.preview.strokeRect(column * CONFIG.cell + 3, row * CONFIG.cell + 3, CONFIG.cell - 6, CONFIG.cell - 6);
-      this.preview.lineStyle(1, valid ? 0xb8efd0 : 0xff9b80, 0.3);
+      this.preview.lineStyle(2, valid ? 0xf1ffc7 : 0xff755b, 0.45);
       this.preview.strokeCircle(point.x, point.y, this.selectedTower?.stats.range ?? CONFIG.towers[this.buildType].levels[0].range);
-    } else if (!this.endText.visible) {
-      const result = this.state.status === 'victory' ? 'VICTORY\nThe fortress stands.' : 'GAME OVER\nThe fortress has fallen.';
-      this.endText.setText(result).setVisible(true);
-      this.message.textContent = `${result.replace('\n', '. ')} Press Restart to play again.`;
+    } else if (this.result.hidden) {
+      const won = this.state.status === 'victory';
+      this.result.hidden = false;
+      this.result.dataset.outcome = this.state.status;
+      document.querySelector<HTMLElement>('#result-title')!.textContent = won ? 'The keep stands!' : 'The keep has fallen';
+      document.querySelector<HTMLElement>('#result-detail')!.textContent = won
+        ? `Five waves defeated. ${this.state.lives} lives remain. Oakheart is safe.`
+        : `You held the road until wave ${this.state.waves.wave}. Rebuild and try a new defense.`;
+      this.message.textContent = won ? 'Victory! All five waves cleared.' : 'Defeat. Restart to defend the keep again.';
+      this.resultRestart.focus({ preventScroll: true });
     }
     this.refreshHud();
   }
@@ -189,10 +226,9 @@ export class GameScene extends Phaser.Scene {
     const key = `${this.state.gold},${this.state.lives},${this.state.waves.wave},${this.state.waves.active},${this.state.status},${this.buildType},${tower?.column},${tower?.row},${tower?.level}`;
     if (key === this.hudKey) return;
     this.hudKey = key;
-    const text = `Gold ${this.state.gold}  ·  Lives ${this.state.lives}  ·  Wave ${this.state.waves.wave} / ${CONFIG.waves.length}`;
-    if (this.hud.textContent !== text) this.hud.textContent = text;
+    this.hud.innerHTML = `<span class="stat gold-stat"><span>Gold </span><strong>${this.state.gold}</strong></span><span class="stat lives-stat"><span>Lives </span><strong>${this.state.lives}</strong></span><span class="stat wave-stat"><span>Wave </span><strong>${this.state.waves.wave} / ${CONFIG.waves.length}</strong></span>`;
     this.startButton.disabled = this.state.status !== 'playing' || this.state.waves.active;
-    const label = this.state.waves.active ? 'Wave in progress' : this.state.status === 'playing' ? 'Start Wave' : 'Battle finished';
+    const label = this.state.status !== 'playing' ? 'Battle finished' : this.state.waves.active ? 'Wave in progress' : 'Start Wave';
     if (this.startButton.textContent !== label) this.startButton.textContent = label;
     this.shop.querySelectorAll<HTMLButtonElement>('button').forEach(button => {
       const type = button.dataset.tower as TowerType;
@@ -214,6 +250,7 @@ export class GameScene extends Phaser.Scene {
       : `Level ${tower.level + 1} · ${tower.upgradeCost} gold${this.state.gold < tower.upgradeCost ? ' (need more gold)' : ''}`;
     const waveIndex = this.state.waves.active ? this.state.waves.wave - 1 : this.state.waves.wave;
     const wave = CONFIG.waves[waveIndex];
-    this.waveIntel.textContent = wave ? `${this.state.waves.active ? 'Incoming' : 'Next wave'}: ${wave.count} enemies · ${[...new Set(wave.pattern)].join(', ')}` : 'All five waves cleared.';
+    this.waveIntel.textContent = this.state.status === 'defeat' ? `Defense ended at wave ${this.state.waves.wave}.`
+      : wave ? `${this.state.waves.active ? 'Incoming' : 'Next wave'}: ${wave.count} enemies · ${[...new Set(wave.pattern)].join(', ')}` : 'All five waves cleared.';
   }
 }
