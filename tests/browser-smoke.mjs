@@ -74,12 +74,21 @@ try {
       createOscillator() {
         const oscillator = super.createOscillator();
         const start = oscillator.start.bind(oscillator);
+        const disconnect = oscillator.disconnect.bind(oscillator);
+        let counted = false;
+        const release = () => {
+          if (counted) { counted = false; window.__audioSmoke.live--; }
+        };
         oscillator.start = (...args) => {
+          const result = start(...args);
+          counted = true;
           window.__audioSmoke.starts++; window.__audioSmoke.live++;
           window.__audioSmoke.peak = Math.max(window.__audioSmoke.peak, window.__audioSmoke.live);
-          return start(...args);
+          return result;
         };
-        oscillator.addEventListener('ended', () => window.__audioSmoke.live--, { once: true });
+        // Restart disconnects voices before the browser delivers their ended events.
+        oscillator.disconnect = (...args) => { const result = disconnect(...args); release(); return result; };
+        oscillator.addEventListener('ended', release, { once: true });
         return oscillator;
       }
     };

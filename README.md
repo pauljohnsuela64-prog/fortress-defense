@@ -1,4 +1,4 @@
-# Fortress Defense — Phase 2
+# Fortress Defense
 
 An original top-down tower defense game built with Phaser, TypeScript, and Vite. Combine archers, cannons and magic towers, upgrade your defenses and survive five mixed enemy waves. The Oakheart woodland battlefield, character art, interface illustrations and synthesized sounds are original. No external assets, backend or database is required. Phase 2 combat balance is unchanged.
 
@@ -102,7 +102,7 @@ The OS reduced-motion preference disables walking/aura/recoil animation and part
 
 `.github/workflows/ci.yml` runs on pushes to `main` and pull requests targeting `main`. The single `verify` job uses Ubuntu, Node.js 24, read-only repository permissions, SHA-pinned checkout/setup-node actions and a 10-minute timeout. Steps: `npm ci`, `npm run typecheck`, `npm test`, `npm run build`, and `npm audit --audit-level=low`. Audit still runs after earlier failures unless canceled, and prints an explicit GitHub error annotation for vulnerabilities or registry failures.
 
-The equivalent clean-install checks were run locally. GitHub-hosted execution is not verified until this branch is published as a PR; Phase 3 is intentionally committed locally only.
+Local TypeScript checks, all 38 automated tests, the production build and dependency audit pass. Phase 3 is published on `feat/phase-3-visual-overhaul`. GitHub-hosted CI and merge remain pending pull-request creation; the connected integration currently lacks permission to create the PR.
 
 ## Asset provenance
 
